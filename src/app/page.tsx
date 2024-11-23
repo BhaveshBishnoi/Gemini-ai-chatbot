@@ -8,6 +8,7 @@ import type { Message } from "@/types/chat";
 import { Sidebar } from "@/components/chat/sidebar";
 import { nanoid } from "nanoid";
 import { FormattedResponse } from "@/components/formatted-response";
+import { MicButton } from "@/components/mic-button";
 
 interface Chat {
   id: string;
@@ -83,26 +84,33 @@ export default function Home() {
       setChats((prev) =>
         prev.map((chat) => {
           if (chat.id === activeChat) {
-            return {
+            const updatedChat = {
               ...chat,
               messages: [
                 ...updatedMessages,
-                {
-                  role: "assistant" as const,
-                  content: aiResponse,
-                },
+                { role: "assistant" as const, content: aiResponse },
               ],
             };
+
+            if (chat.title === "New Chat" && updatedMessages.length === 1) {
+              updatedChat.title =
+                updatedMessages[0].content.slice(0, 30) + "...";
+            }
+
+            return updatedChat;
           }
           return chat;
         })
       );
-    } catch (error) {
-      console.error("Error:", error);
+    } catch {
     } finally {
       setIsLoading(false);
       setMessage("");
     }
+  };
+
+  const handleTranscription = (text: string) => {
+    setMessage(text);
   };
 
   return (
@@ -213,36 +221,51 @@ export default function Home() {
                 }
               }}
               placeholder="Message Gemini..."
-              className="min-h-[60px] max-h-[200px] pr-12 resize-none 
+              className="min-h-[60px] max-h-[200px] pr-24 resize-none 
                 bg-[#1a1a1a] border-[#2a2a2a] rounded-xl
                 text-zinc-200 placeholder:text-zinc-500
                 focus-visible:ring-1 focus-visible:ring-emerald-500 focus-visible:ring-offset-0
                 transition-all duration-200"
               disabled={isLoading || !activeChat}
             />
-            <Button
-              size="icon"
-              className={`
-                absolute right-2 bottom-2 h-8 w-8 rounded-lg
-                ${
-                  isLoading || !message.trim() || !activeChat
-                    ? "bg-zinc-700 opacity-50"
-                    : "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400"
+            <div className="absolute right-2 bottom-2 flex gap-2">
+              <MicButton
+                onTranscription={handleTranscription}
+                isLoading={isLoading}
+                onSubmit={handleSubmit}
+                lastResponse={
+                  currentChat?.messages[currentChat.messages.length - 1]
+                    ?.role === "assistant"
+                    ? currentChat.messages[currentChat.messages.length - 1]
+                        .content
+                    : undefined
                 }
-                transition-all duration-200 shadow-lg
-              `}
-              onClick={handleSubmit}
-              disabled={isLoading || !message.trim() || !activeChat}
-            >
-              {isLoading ? (
-                <div className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <SendHorizontal className="h-4 w-4 text-zinc-200" />
-              )}
-            </Button>
+              />
+              <Button
+                size="icon"
+                className={`
+                  h-8 w-8 rounded-lg
+                  ${
+                    isLoading || !message.trim() || !activeChat
+                      ? "bg-zinc-700 opacity-50"
+                      : "bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400"
+                  }
+                  transition-all duration-200 shadow-lg
+                `}
+                onClick={handleSubmit}
+                disabled={isLoading || !message.trim() || !activeChat}
+              >
+                {isLoading ? (
+                  <div className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <SendHorizontal className="h-4 w-4 text-zinc-200" />
+                )}
+              </Button>
+            </div>
           </div>
           <div className="max-w-4xl mx-auto mt-2 text-xs text-center text-zinc-500">
-            Press Enter to send • Shift + Enter for new line
+            Press Enter to send • Shift + Enter for new line • Click mic to
+            record
           </div>
         </div>
       </main>
