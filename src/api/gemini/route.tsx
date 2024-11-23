@@ -1,27 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest } from "next/server";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-
-// Helper function to format the response
-function formatResponse(text: string) {
-  // Add section headers if they don't exist
-  if (!text.includes("**")) {
-    text = `**Response**\n${text}`;
-  }
-
-  // Format bullet points if they exist
-  const lines = text.split("\n");
-  const formattedLines = lines.map((line) => {
-    // Convert dash lists to bullet points
-    if (line.trim().startsWith("-")) {
-      return line.replace(/^[\s-]*/, "* ");
-    }
-    return line;
-  });
-
-  return formattedLines.join("\n");
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error("Missing GEMINI_API_KEY environment variable");
 }
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,34 +15,32 @@ export async function POST(request: NextRequest) {
     // Get the last user message
     const lastMessage = messages[messages.length - 1];
 
-    // Generate content from the last message only
-    const result = await model.generateContent(lastMessage.content);
-    const response = await result.response;
-    console.log(response);
+    try {
+      // Generate content from the last message only
+      const result = await model.generateContent(lastMessage.content);
+      const response = await result.response;
+      const text = response.text();
 
-    // Format the response text to work with FormattedResponse component
-    const formattedText = formatResponse(response.text());
-
-    console.log(formattedText);
-
-    // Return plain text response
-    return new Response(formattedText, {
-      headers: {
-        "Content-Type": "text/plain",
-      },
-    });
+      // Return plain text response
+      return new Response(text, {
+        headers: {
+          "Content-Type": "text/plain",
+        },
+      });
+    } catch (modelError) {
+      console.error("Gemini Model Error:", modelError);
+      throw modelError;
+    }
   } catch (error) {
-    const errorMessage =
-      error instanceof Error
-        ? `**Error**\n${error.message}`
-        : "**Error**\nFailed to process request";
-
-    // Return plain text error
-    return new Response(errorMessage, {
-      status: 500,
-      headers: {
-        "Content-Type": "text/plain",
-      },
-    });
+    console.error("API Error:", error);
+    return new Response(
+      error instanceof Error ? error.message : "Failed to process request",
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "text/plain",
+        },
+      }
+    );
   }
 }
